@@ -12,48 +12,40 @@ records=(
     "domain2.ddns blog"
 )
 
-headers="Authorization: sso-key $GD_Key:$GD_Secret"
-# echo $headers
+auth_header="Authorization: sso-key $GD_Key:$GD_Secret"
+# echo $auth_header
+
+record_update() {
+    myIP="$1"
+    url="$2"
+    dns_data=$(curl -s -X GET -H "$auth_header" "$url")
+    # echo $dns_data
+    GDIP=$(
+        echo $dns_data | 
+        grep -oE '\b(([0-9]{1,3}\.){3}[0-9]{1,3})|(([0-9a-f]{1,4}:){7}[0-9a-f]{1,4})\b'
+    )
+    # echo "$myIP" "$GDIP" "$url"
+    if [ "$GDIP" != "$myIP" -a "$myIP" != "" ]; then
+        # echo "Ips are not equal"
+        request='[{"data":"'$myIP'","ttl":600}]'
+        # echo "request:" $request
+        result=$(curl -i -s -X PUT \
+            -H "$auth_header" \
+            -H "Content-Type: application/json" \
+            -d $request \
+            "$url")
+        # echo "result:" $result
+    fi
+}
+
+DNS_update() {
+    prefix_url="https://api.godaddy.com/v1/domains/$1/records"
+    # update A record
+    record_update $(curl -s "https://api.ipify.org") "$prefix_url/A/$2"
+    # update AAAA record
+    record_update $(curl -s "https://api6.ipify.org") "$prefix_url/AAAA/$2"
+}
+
 for record in "${records[@]}"; do
-    pair=($record)
-    domain="${pair[0]}"
-    hostname="${pair[1]}"
-
-    dns_a_data=$(curl -s -X GET -H "$headers" "https://api.godaddy.com/v1/domains/$domain/records/A/$hostname")
-    #echo $dns_a_data
-    GDIP4=$(echo $dns_a_data | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b")
-    #echo "GDIP4:" $GDIP4
-    myIPV4=`curl -s "https://api.ipify.org"`
-    #echo "myIPV4:" $myIPV4
-
-    if [ "$GDIP4" != "$myIPV4" -a "$myIPV4" != "" ]; then
-        # echo "Ips are not equal"
-        req4='[{"data":"'$myIPV4'","ttl":600}]'
-        # echo " req4:" $req4
-        ret4=$(curl -i -s -X PUT \
-            -H "$headers" \
-            -H "Content-Type: application/json" \
-            -d $req4 \
-            "https://api.godaddy.com/v1/domains/$domain/records/A/$hostname")
-        # echo "ret4:" $ret4
-    fi
-
-    dns_aaaa_data=$(curl -s -X GET -H "$headers" "https://api.godaddy.com/v1/domains/$domain/records/AAAA/$hostname")
-    #echo $dns_aaaa_data
-    GDIP6=$(echo $dns_aaaa_data | cut -d ',' -f 1 | tr -d '"' | cut -d ":" -f 2-9)
-    #echo "GDIP6:" $GDIP6
-    myIPV6=`curl -s "https://api6.ipify.org"`
-    #echo "myIPV6:" $myIPV6
-
-    if [ "$GDIP6" != "$myIPV6" -a "$myIPV6" != "" ]; then
-        # echo "Ips are not equal"
-        req6='[{"data":"'$myIPV6'","ttl":600}]'
-        # echo " req6:" $req6
-        ret6=$(curl -s -X PUT \
-            -H "$headers" \
-            -H "Content-Type: application/json" \
-            -d $req6 \
-            "https://api.godaddy.com/v1/domains/$domain/records/AAAA/$hostname")
-        # echo "ret6:" $ret6
-    fi
+    DNS_update $record
 done
