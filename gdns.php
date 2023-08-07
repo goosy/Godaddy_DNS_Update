@@ -5,6 +5,21 @@
 // godaddy token
 $GD_Key = "your_godaddy_key";
 $GD_Secret = "your_godaddy_secret";
+$logFilePath = "logs/gdns_log"; // If the logFilePath is '', no log will output
+
+function glog($message)
+{
+    global $logFilePath;
+    if ($logFilePath == '')
+        return;
+    $logFile = "$logFilePath" . gmdate('Ymd') . ".txt";
+    $currentDateTime = gmdate('Y-m-d H:i:s');
+    file_put_contents(
+        $logFile,
+        "== $currentDateTime ==========================" . PHP_EOL . $message . PHP_EOL,
+        FILE_APPEND
+    );
+}
 
 if (isset($_GET['hostname'])) {
     $fullDomain = explode(".", $_GET['hostname'], 2);
@@ -27,6 +42,7 @@ if (isset($_GET['myip'])) {
         : filter_var($myip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
 }
 if (!$ip_valid) {
+    glog("IP invalid : $myip");
     exit("IP地址不合法");
 }
 
@@ -60,6 +76,7 @@ function sendRequest($url, $data, $method)
 
     $response = curl_exec($ch);
     if ($response === false) {
+        glog("visiting godaddy error: " . curl_error($ch));
         exit("访问GoDaddy错误: " . curl_error($ch));
     }
     curl_close($ch);
@@ -70,15 +87,19 @@ function sendRequest($url, $data, $method)
 $response = sendRequest($url, null, 'GET');
 $data = json_decode($response, true);
 if ($data === null) {
+    glog("recive error");
     exit("GoDaddy返回数据出错");
 } else {
     $GDIP = $data[0]["data"];
 }
 
+glog("$hostname.$domain myip:$myip GDIP:$GDIP");
+
 if ($myip != $GDIP) {
-    echo "updated";
-    $record = array('data' => $myip, 'ttl' => 600);
+    $record = array('data' => $myip, 'ttl' => 1800);
     $response = sendRequest($url, array($record), "PUT");
+    echo "updated";
+    glog("updated");
 } else {
     echo "OK";
 }
