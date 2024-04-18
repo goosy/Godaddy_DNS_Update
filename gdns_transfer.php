@@ -42,7 +42,7 @@ if (isset($_GET['myip'])) {
         : filter_var($myip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
 }
 if (!$ip_valid) {
-    glog("IP invalid : $myip");
+    glog("$hostname.$domain myip:$myip" . PHP_EOL . "IP invalid");
     exit("IP地址不合法");
 }
 
@@ -101,7 +101,7 @@ if ($myip != $GDIP) {
     echo "updated";
     glog("updated");
 } else {
-    echo "OK";
+    echo "kept";
 }
 
 ?>
